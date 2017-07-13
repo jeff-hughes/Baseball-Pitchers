@@ -1,9 +1,24 @@
 ---
 title: "Predicting Great Pitchers"
 output:
-  html_document: default
+  html_document:
+    theme: spacelab
+    highlight: tango
+    code_folding: hide
   html_notebook: default
 ---
+
+<style>
+.btn-default, .btn-default.active, .btn-default:hover, .btn-default:active,
+.btn-default:focus, .open>.dropdown-toggle.btn-default,
+.btn-default:active:hover, .btn-default.active:hover, .open>.dropdown-toggle.btn-default:hover, .btn-default:active:focus, .btn-default.active:focus, .open>.dropdown-toggle.btn-default:focus, .btn-default:active.focus, .btn-default.active.focus, .open>.dropdown-toggle.btn-default.focus {
+    background-image: none;
+    background-color: #f8f8f8;
+    border-color: #cccccc;
+    color: #333333;
+    text-shadow: none;
+}
+</style>
 
 Predicting things with varying amounts of data is a common problem. If you are comparing two products, one of which has a 4.5 / 5 rating based on 3 reviews, and another with a 4.0 / 5 rating based on 1200 reviews, which is the better product? On the one hand, you could compare the ratings (4.5 vs. 4.0); but one of those ratings is based on much less data. Maybe the three people who reviewed the first product all just happened to love it. Or maybe those ratings are by the seller's friends!
 
@@ -11,9 +26,13 @@ In cases like these, it is important to weigh the data itself (i.e., the rating)
 
 So let's talk about baseball. I am not a baseball fanatic. When I was young, I did enjoy keeping up with baseball. But to be honest, I think I got more enjoyment from updating the team statistics on my Excel spreadsheet than I did actually watching the games. (Yes, I was a data nerd even from a young age.) But I haven't really followed baseball in 15 years or more. That said, baseball is a game for nerds. There are lots of great statistics you can use in baseball. The following post is inspired by [a post by David Robinson on empirical Bayes](http://varianceexplained.org/r/empirical_bayes_baseball/), but applied to a different context.
 
+## The Problem
+
 Let's say we want to evaluate major league pitchers. One key statistic used for pitchers is their ERA: Earned Run Average. This is calculated by taking the number of earned runs they allowed while pitching (an earned run means there was no error on the play) and dividing it by the number of innings pitched. This value is then multiplied by 9 to extend the average over 9 innings. So essentially, the lower a pitcher's ERA, the better a pitcher they are -- they allow the other team to get fewer runs.
 
 Pitchers already vary in the number of innings they pitch. Like the example of product reviews, an ERA calculated over fewer innings is likely to be a more unstable estimate of a pitcher's true ability. So this would be a great case for using a Bayesian approach. However, let's make it a bit more challenging still. What I'd like to do is take a pitcher's ERA over just their *first* year of pitching, and see how well we can predict what their overall ERA will be over their whole career. (I actually subtract out the first year's data from the career ERA calculation so we're not double-counting data. But it's still the same general idea.) This is quite a challenge -- how accurately can we predict a pitcher's career based on the dozen or so innings they pitched as a rookie? Well, let's try it and find out.
+
+## Exploring the Data
 
 I first load some packages and the data. I'm using [Sean Lahman's baseball database](http://www.seanlahman.com/baseball-archive/statistics/), an excellent source of data with statistics all the way from 1871 to 2016. However, I'm going to select only data from 1945 onwards, as the game itself has evolved in ways that might introduce a lot more complexity.
 
@@ -22,8 +41,8 @@ library(knitr)
 library(ggplot2)
 library(dplyr)
 
-master <- read.csv('baseballdatabank-2017.1/core/Master.csv', stringsAsFactors=FALSE)
-pitching <- read.csv('baseballdatabank-2017.1/core/Pitching.csv', stringsAsFactors=FALSE)
+master <- read.csv('Master.csv', stringsAsFactors=FALSE)
+pitching <- read.csv('Pitching.csv', stringsAsFactors=FALSE)
 
 pitching <- pitching %>%
     filter(yearID >= 1945, IPouts > 0) %>%
@@ -34,7 +53,7 @@ pitching <- pitching %>%
 
 Below you can see a plot of pitcher's ERAs over each year of their career. You can see a couple things: First off, most pitchers have a career spanning less than 20 years. Second, while the average ERA stays relatively stable (as noted by the loess line), there is much more variability in the early years. However, this may be due in part to calculating averages over fewer innings pitched. It's easy to have an absurdly high (or low) ERA if you've only pitched a single inning!
 
-```{r plot_by_year}
+```{r plot_by_year, message=FALSE, warning=FALSE}
 ggplot(pitching, aes(x=year, y=ERA)) + geom_jitter(alpha=.1) + geom_smooth() + ylim(0, 100) + labs(x='Year of Career') + theme_minimal()
 ```
 
@@ -77,6 +96,8 @@ first_year %>%
 
 As you can see, they all have very little data. One pitcher, Jeff Zaske, surprisingly pitched *5 innings* without an earned run, but the rest are around 1 inning or less. Obviously, this isn't too helpful for figuring out who the best pitchers are.
 
+## Constructing the Bayesian Model
+
 So to solve this problem, I am going to use empirical Bayes to estimate a "true 1st-year ERA" for pitchers. This is then applied to all pitchers in our data set to essentially "pull in" pitchers with little data toward the mean. The general idea is this: If we had absolutely *no* information about a pitcher, our best guess would be the mean. If we have just a little information about a pitcher, we can use that information, but we should still weigh that along with the mean so that our predictions get pulled in closer to the mean. The more data we have, the more we weight that data and the less we weight the mean in our prediction.
 
 ERA can be considered a rate variable, modelled by a Poisson process where earned runs occur at a certain rate per inning pitched. This rate can be modelled by a Gamma distribution, and because I'm using an empirical Bayes approach, I'm going to use the data to determine the hyperparameters of that Gamma distribution. I'm actually going to grab a subset of the data in order to provide a better estimate -- I'll restrict the data to those who have pitched more than 20 innings. That just ensures that we get rid of some of those extremes at either end. Here's the distribution for those 20-inning-plus pitchers:
@@ -99,6 +120,7 @@ shape <- mean(first_year_filtered$ERA) * rate
 If we assume the likelihood is generated from a Poisson distribution, then Gamma and Poisson are what's known as *conjugate priors*, which means we get another Gamma distribution out at the end. That just makes the math a little easier; if we wanted to model this differently, you could also use Markov Chain Monte Carlo (MCMC) methods to sample from your posterior distribution. I'll return to that at the end when talking about some ways to extend this example. However, right now here's what I'm doing: I just calculated a prior Gamma distribution above based on the data. Then, for each pitcher in the data set, I use their actual data, plus the prior distribution, and combine them to create a posterior Gamma distribution for each pitcher. The conjugate priors make this relationship nice and simple; the posterior shapes and rates are calculated as follows:
 
 $\alpha_i = \alpha_0 + ER$
+
 $\beta_i = \beta_0 + IP$
 
 This means we get a full probability distribution for each player, giving us the likely values for each player's true ERA. I could leave that there if I wanted to, but given that I want to use this to predict their future career ERA, it's useful to also grab some "best estimate" for each player. Below I calculate the median value; however, you could just as easily calculate the mean, or some other estimate of your choosing.
@@ -154,6 +176,8 @@ ggplot(sample_ests, aes(y=k)) + geom_point(aes(x=median), color='#595959') +
     scale_color_gradient(low='#97fcfa', high='#002dfc') + labs(x='ERA', y='Pitcher') + theme_minimal() +
     theme(axis.text.y=element_blank(), axis.ticks.y=element_blank())
 ```
+
+## Predicting Career ERA
 
 Okay, the real test of this model is to use it to predict pitchers' ERA over the rest of their career. As I said earlier, this is a challenging task, given that I am trying to use people's performance in their rookie year to predict their performance up to 20 years later! This is also a relatively simplistic model: I'm implicitly assuming that pitchers' performance does not change over their career; that there is no difference between pitchers across the decades, across teams, etc. The only bits of information I've used is the ER in their first year, and the number of innings they pitched.
 
