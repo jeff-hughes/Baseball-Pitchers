@@ -37,7 +37,7 @@ Pitchers already vary in the number of innings they pitch. Like the example of p
 
 ## Exploring the Data
 
-I first load some packages and the data. You can see the code for this analysis by clicking on the buttons to the right, or go to the top of the page on the right and select "Show All Code". I'm using [Sean Lahman's baseball database](http://www.seanlahman.com/baseball-archive/statistics/), an excellent source of data with statistics all the way from 1871 to 2016. However, I'm going to select only data from 1945 onwards, as the game itself has evolved in ways that might introduce a lot more complexity. That still gives us plenty of data to work with.
+I first load some packages and the data. You can see the code for this analysis by clicking on the buttons to the right, or go to the top of the page on the right and select "Show All Code". The raw code is also [available on Github](https://github.com/jeff-hughes/Baseball-Pitchers). I'm using [Sean Lahman's baseball database](http://www.seanlahman.com/baseball-archive/statistics/), an excellent source of data with statistics all the way from 1871 to 2016. However, I'm going to select only data from 1945 onwards, as the game itself has evolved in ways that might introduce a lot more complexity. That still gives us plenty of data to work with.
 
 ```{r load_data, message=FALSE}
 library(knitr)
