@@ -23,7 +23,7 @@ output:
 }
 </style>
 
-#### *By [Jeff Hughes](http://www.jeffhughes.ca)*
+#### *By [Jeff Hughes](http://www.jeffhughes.ca) (July 22, 2017)*
 
 Predicting things with varying amounts of data is a common problem. If you are comparing two products, one of which has a 4.5 / 5 rating based on 3 reviews, and another with a 4.0 / 5 rating based on 1200 reviews, which is the better product? On the one hand, in an objective sense, 4.5 is higher than 4.0. On the other hand, one of those ratings is based on much less data. Maybe the three people who reviewed the first product all just happened to love it. Or maybe those ratings were given by friends of the seller!
 
